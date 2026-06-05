@@ -132,20 +132,14 @@ fun MainApp(
             val view = window.decorView
             val controller = androidx.core.view.WindowCompat.getInsetsController(window, view)
             val isDark = settings.theme == "dark"
-            val isSepia = settings.theme == "sepia"
             
-            // Set appropriate status bar icon tint (light icons on dark background, dark on light)
-            controller.isAppearanceLightStatusBars = !isDark && !isSepia
-            controller.isAppearanceLightNavigationBars = !isDark && !isSepia
+            // Set appropriate status/navigation bar icon tint (light icons on dark background, dark on light/sepia)
+            controller.isAppearanceLightStatusBars = !isDark
+            controller.isAppearanceLightNavigationBars = !isDark
             
-            // Adjust system bar background colors dynamically to seamlessly match theme surfaces
-            val barColor = when (settings.theme) {
-                "dark" -> 0xFF121212.toInt()
-                "sepia" -> 0xFFFBF4E9.toInt()
-                else -> 0xFFFFFFFF.toInt()
-            }
-            window.statusBarColor = barColor
-            window.navigationBarColor = barColor
+            // Make system bars completely transparent so they blend seamlessly with the app's dynamic background
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
         }
     }
 
@@ -772,74 +766,79 @@ fun SurahCardRow(
     onBookmarkClicked: () -> Unit
 ) {
     val quranColors = LocalQuranColors.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(quranColors.surface, RoundedCornerShape(20.dp))
-            .border(1.dp, quranColors.borderColor, RoundedCornerShape(20.dp))
-            .clickable { onSurahClicked() }
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        onClick = onSurahClicked,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = quranColors.surface),
+        border = BorderStroke(1.dp, quranColors.borderColor),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Number badge
-        Box(
+        Row(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(quranColors.background),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                surah.number.toString(),
-                color = quranColors.textMain,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 15.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Number badge
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(quranColors.background),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    surah.englishName,
+                    surah.number.toString(),
                     color = quranColors.textMain,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp
                 )
-                if (isDownloaded) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Default.OfflinePin,
-                        contentDescription = "Offline Available",
-                        tint = quranColors.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        surah.englishName,
+                        color = quranColors.textMain,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isDownloaded) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.OfflinePin,
+                            contentDescription = "Offline Available",
+                            tint = quranColors.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                Text(
+                    "${if (surah.revelationType == "Meccan") "মাক্কী" else "মাদানী"} • ${surah.numberOfAyahs} আয়াত",
+                    color = quranColors.textMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
             Text(
-                "${if (surah.revelationType == "Meccan") "মাক্কী" else "মাদানী"} • ${surah.numberOfAyahs} আয়াত",
-                color = quranColors.textMuted,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 2.dp)
+                surah.name,
+                color = quranColors.primary,
+                fontSize = 20.sp,
+                fontFamily = FontFamily.Serif,
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
-        }
 
-        Text(
-            surah.name,
-            color = quranColors.primary,
-            fontSize = 20.sp,
-            fontFamily = FontFamily.Serif,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-
-        IconButton(onClick = onBookmarkClicked) {
-            Icon(
-                imageVector = if (isBookmark) Icons.Default.Star else Icons.Default.StarBorder,
-                contentDescription = "Bookmark",
-                tint = if (isBookmark) quranColors.accent else quranColors.textMuted
-            )
+            IconButton(onClick = onBookmarkClicked) {
+                Icon(
+                    imageVector = if (isBookmark) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = "Bookmark",
+                    tint = if (isBookmark) quranColors.accent else quranColors.textMuted
+                )
+            }
         }
     }
 }
@@ -1635,30 +1634,28 @@ fun SurahReadingScreen(
         itemsIndexed(formattedSurah.ayahs, key = { _, ayah -> ayah.numberInSurah }) { index, ayah ->
             val isActive = activeAyahIndex == index
 
-            // High performance borders for zero lists lag
-            val activeBorderWidth = if (isActive) 2.dp else 1.dp
-            val activeBorderColor = if (isActive) quranColors.accent else quranColors.borderColor
-            val backgroundGradient = remember(isActive, quranColors) {
-                if (isActive) {
-                    Brush.linearGradient(
-                        colors = listOf(quranColors.surface, quranColors.primarySoft.copy(alpha = 0.15f))
-                    )
-                } else {
-                    Brush.linearGradient(
-                        colors = listOf(quranColors.surface, quranColors.surface)
-                    )
-                }
-            }
-
-            Box(
+            Card(
+                onClick = {
+                    val service = viewModel.playerService.value
+                    if (service != null && service.currentSurah.value?.number == formattedSurah.number && service.currentAyahIndex.value == index) {
+                        service.togglePlayPause()
+                    } else {
+                        viewModel.playerService.value?.setSurahAndPlay(formattedSurah, index)
+                    }
+                },
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isActive) quranColors.primarySoft.copy(alpha = 0.15f) else quranColors.surface
+                ),
+                border = BorderStroke(
+                    width = if (isActive) 2.dp else 1.dp,
+                    color = if (isActive) quranColors.accent else quranColors.borderColor
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp)
-                    .background(backgroundGradient, RoundedCornerShape(24.dp))
-                    .border(activeBorderWidth, activeBorderColor, RoundedCornerShape(24.dp))
-                    .padding(18.dp)
             ) {
-                Column {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
