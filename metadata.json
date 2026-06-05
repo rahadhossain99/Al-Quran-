@@ -1,0 +1,6 @@
+{
+  "name": "Al-Quran",
+  "description": "An ultra-premium minimalist Al-Quran reciting application with multi-theme support (White, Sepia, Dark), 10 popular world-class Qaris, favorite bookmarks, and persistent lockscreen controls that continue streaming with the screen off.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
