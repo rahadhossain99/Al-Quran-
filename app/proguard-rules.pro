@@ -19,3 +19,14 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# OkHttp/Okio optional security dependencies
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.bouncycastle.crypto.tls.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+
+# General ProGuard rules for common libraries
+-dontwarn javax.annotation.**
+-dontwarn org.codehaus.mojo.animal_sniffer.**
+
