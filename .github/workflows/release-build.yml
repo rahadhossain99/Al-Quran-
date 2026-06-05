@@ -26,6 +26,10 @@ jobs:
       with:
         gradle-version: '9.3.1'
 
+    # গিটহাবে থাকা এনকোড করা ফাইল থেকে আসল debug.keystore চাবিটি তৈরি করা
+    - name: Decode Debug Keystore
+      run: base64 -d debug.keystore.base64 > debug.keystore
+
     - name: Build Debug APK
       run: gradle assembleDebug
 
