@@ -1,0 +1,44 @@
+name: Build Release APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Unsigned Release APK
+      run: ./gradlew assembleRelease
+
+    - name: Sign Release APK
+      run: |
+        # Base64 কী-টি ডিকোড করে ফাইল তৈরি করা
+        base64 -d debug.keystore.base64 > debug.keystore
+        
+        # অ্যান্ড্রয়েড এসডিকে থেকে apksigner টুলটি খুঁজে বের করা
+        APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
+        
+        # রিলিজ APK-টি সাইন করা
+        $APKSIGNER sign --ks debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out app/build/outputs/apk/release/app-release-signed.apk app/build/outputs/apk/release/app-release-unsigned.apk
+
+    - name: Upload Signed Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-release-apk
+        path: app/build/outputs/apk/release/app-release-signed.apk
