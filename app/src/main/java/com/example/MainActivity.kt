@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val database by lazy { QuranDatabase.getDatabase(this) }
-    private val repository by lazy { QuranRepository(database.quranDao()) }
+    private val repository by lazy { QuranRepository(database.quranDao(), applicationContext) }
 
     private val viewModel: QuranViewModel by viewModels {
         QuranViewModelFactory(repository)

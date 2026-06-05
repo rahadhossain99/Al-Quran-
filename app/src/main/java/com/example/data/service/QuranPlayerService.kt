@@ -139,6 +139,20 @@ class QuranPlayerService : Service() {
         playAyah(startIndex)
     }
 
+    private fun getCachedAudioFile(context: Context, audioUrl: String): java.io.File? {
+        if (audioUrl.isBlank()) return null
+        return try {
+            val md = java.security.MessageDigest.getInstance("MD5")
+            val bytes = md.digest(audioUrl.toByteArray())
+            val hex = bytes.joinToString("") { "%02x".format(it) }
+            val dir = java.io.File(context.filesDir, "cached_audio")
+            if (!dir.exists()) dir.mkdirs()
+            java.io.File(dir, "$hex.mp3")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun playAyah(index: Int) {
         val surah = _currentSurah.value ?: return
         if (index < 0 || index >= surah.ayahs.size) return
@@ -159,11 +173,15 @@ class QuranPlayerService : Service() {
         startForegroundServiceNotification()
 
         try {
-            // Secure connection mapping
-            val secureUrl = if (audioUrl.startsWith("http://")) {
-                audioUrl.replace("http://", "https://")
+            val cachedFile = getCachedAudioFile(this, audioUrl)
+            val finalDataSource = if (cachedFile != null && cachedFile.exists() && cachedFile.length() > 0) {
+                cachedFile.absolutePath
             } else {
-                audioUrl
+                if (audioUrl.startsWith("http://")) {
+                    audioUrl.replace("http://", "https://")
+                } else {
+                    audioUrl
+                }
             }
 
             mediaPlayer = MediaPlayer().apply {
@@ -173,7 +191,7 @@ class QuranPlayerService : Service() {
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .build()
                 )
-                setDataSource(secureUrl)
+                setDataSource(finalDataSource)
                 setOnPreparedListener { mp ->
                     acquireLocks()
                     mp.start()
@@ -198,6 +216,7 @@ class QuranPlayerService : Service() {
                     _isPlaying.value = false
                     _isError.value = "প্লেব্যাক ত্রুটি"
                     releaseLocks()
+                    releaseMediaPlayer() // Crucial: clear broken players immediately!
                     false
                 }
                 prepareAsync()
@@ -212,18 +231,26 @@ class QuranPlayerService : Service() {
     fun togglePlayPause() {
         val player = mediaPlayer
         if (player != null) {
-            if (player.isPlaying) {
-                player.pause()
-                _isPlaying.value = false
-                releaseLocks()
-                progressJob?.cancel()
-                startForegroundServiceNotification()
-            } else {
-                acquireLocks()
-                player.start()
-                _isPlaying.value = true
-                startProgressTracker()
-                startForegroundServiceNotification()
+            try {
+                if (player.isPlaying) {
+                    player.pause()
+                    _isPlaying.value = false
+                    releaseLocks()
+                    progressJob?.cancel()
+                    startForegroundServiceNotification()
+                } else {
+                    acquireLocks()
+                    player.start()
+                    _isPlaying.value = true
+                    startProgressTracker()
+                    startForegroundServiceNotification()
+                }
+            } catch (e: Exception) {
+                releaseMediaPlayer()
+                val index = if (_currentAyahIndex.value >= 0) _currentAyahIndex.value else 0
+                if (_currentSurah.value != null) {
+                    playAyah(index)
+                }
             }
         } else {
             // If we have a surah loaded, play the current index (or 0)

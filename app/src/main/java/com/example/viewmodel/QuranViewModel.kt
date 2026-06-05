@@ -275,6 +275,81 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
             }
         }
     }
+
+    // Perform actual real background download of Surah text structure and its ayah audios
+    fun downloadSurahOffline(
+        surahNumber: Int,
+        qari: String,
+        onProgress: (Float) -> Unit,
+        onCompleted: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                onProgress(0.05f)
+                val surah = repository.getSurahEditions(surahNumber, qari)
+                val ayahs = surah.ayahs
+                if (ayahs.isEmpty()) {
+                    toggleOfflineSurah(surahNumber)
+                    onProgress(1.0f)
+                    onCompleted(true)
+                    return@launch
+                }
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val total = ayahs.size
+                    for (i in ayahs.indices) {
+                        val url = ayahs[i].audioUrl
+                        if (url.isNotBlank()) {
+                            repository.downloadAudioFile(url)
+                        }
+                        val currentProgress = 0.05f + (0.95f * (i + 1).toFloat() / total)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            onProgress(currentProgress)
+                        }
+                    }
+                }
+
+                // Register it as downloaded in local settings if not already marked
+                val currentSetting = userSettings.value
+                if (!currentSetting.downloadedSurahsJson.contains(",$surahNumber,")) {
+                    toggleOfflineSurah(surahNumber)
+                }
+                onCompleted(true)
+            } catch (e: Exception) {
+                onCompleted(false)
+            }
+        }
+    }
+
+    // Delete cached local files to save disk storage space
+    fun deleteDownloadedSurah(surahNumber: Int, qari: String) {
+        viewModelScope.launch {
+            try {
+                val surah = repository.getSurahEditions(surahNumber, qari)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    for (ayah in surah.ayahs) {
+                        if (ayah.audioUrl.isNotBlank()) {
+                            val file = repository.getCachedAudioFile(repository.context, ayah.audioUrl)
+                            if (file != null && file.exists()) {
+                                file.delete()
+                            }
+                        }
+                    }
+                    val cachedSurahFile = repository.getCachedSurahFile(surahNumber, qari)
+                    if (cachedSurahFile.exists()) {
+                        cachedSurahFile.delete()
+                    }
+                }
+                // Unregister from settings if currently marked
+                val currentSetting = userSettings.value
+                if (currentSetting.downloadedSurahsJson.contains(",$surahNumber,")) {
+                    toggleOfflineSurah(surahNumber)
+                }
+            } catch (e: Exception) {
+                // Ignored
+            }
+        }
+    }
 }
 
 class QuranViewModelFactory(private val repository: QuranRepository) : ViewModelProvider.Factory {

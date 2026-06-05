@@ -1498,18 +1498,18 @@ fun SurahReadingScreen(
                                 IconButton(
                                     onClick = {
                                         if (isDownloaded) {
-                                            viewModel.toggleOfflineSurah(formattedSurah.number)
+                                            viewModel.deleteDownloadedSurah(formattedSurah.number, settings.selectedQari)
                                         } else {
-                                            // Animate download simulation
-                                            scope.launch {
-                                                downloadProgress = 0.0f
-                                                while ((downloadProgress ?: 0f) < 1.0f) {
-                                                    kotlinx.coroutines.delay(120)
-                                                    downloadProgress = (downloadProgress ?: 0f) + 0.1f
+                                            viewModel.downloadSurahOffline(
+                                                surahNumber = formattedSurah.number,
+                                                qari = settings.selectedQari,
+                                                onProgress = { progress ->
+                                                    downloadProgress = progress
+                                                },
+                                                onCompleted = { success ->
+                                                    downloadProgress = null
                                                 }
-                                                downloadProgress = null
-                                                viewModel.toggleOfflineSurah(formattedSurah.number)
-                                            }
+                                            )
                                         }
                                     },
                                     modifier = Modifier
