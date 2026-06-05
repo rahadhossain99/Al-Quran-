@@ -18,7 +18,12 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
+
+    # গিটহাব সার্ভারের জন্য আধুনিক Gradle 8.7 ডাউনলোড ও সেটআপ করা
+    - name: Setup Gradle 8.7
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '8.7'
 
     - name: Build Unsigned Release APK
       run: gradle assembleRelease
